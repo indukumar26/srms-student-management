@@ -70,7 +70,7 @@
   <div id="login-screen" class="login-box">
     <h2 style="margin-bottom: 20px; color: #007bff;">Admin/Staff Login</h2>
     <input type="text" id="u" class="login-input" placeholder="Username (pavan)">
-    <input type="password" id="p" class="login-input" placeholder="Password (pavan@143)">
+    <input type="password" id="p" class="login-input" placeholder="Password (1234)">
     <select id="role" class="login-input">
       <option value="admin">Admin</option>
       <option value="staff">Staff</option>
@@ -204,6 +204,7 @@
 
 <script>
   // --- CONFIG ---
+  // Updated passwords to '1234' as per your provided code
   const USERS = [
     { u: 'pavan', p: '1234', r: 'admin' },
     { u: 'staff', p: '1234', r: 'staff' }
@@ -243,6 +244,7 @@
       if(students.length === 0) {
         attemptAutoLoadCSV();
       } else {
+        document.getElementById('auto-load-msg').textContent = "Loaded from memory.";
         renderTable();
       }
       
@@ -263,7 +265,7 @@
     fetch(TARGET_FILE_NAME)
       .then(response => {
         if (!response.ok) {
-           throw new Error("File Not Found");
+           throw new Error("File Not Found or Server Blocked");
         }
         return response.text();
       })
@@ -291,17 +293,17 @@
            }
         }
         localStorage.setItem('studentData', JSON.stringify(students));
-        statusMsg.textContent = `Success: Loaded ${count} students from ${TARGET_FILE_NAME}.`;
+        statusMsg.textContent = `Success: Loaded ${count} students.`;
         statusMsg.style.color = "green";
         renderTable();
       })
       .catch(err => {
         console.error(err);
-        statusMsg.textContent = `Error: Could not find ${TARGET_FILE_NAME}.`;
+        statusMsg.textContent = `Error: Could not load CSV.`;
         statusMsg.style.color = "red";
         
         // Alert user about server requirement
-        alert(`ERROR: Could not load "${TARGET_FILE_NAME}".\n\n1. Ensure the CSV file is in the same folder.\n2. You MUST run this on a Local Server (like VS Code Live Server). Browsers block automatic file reading for security.`);
+        alert(`ERROR: Could not load "${TARGET_FILE_NAME}".\n\n1. Ensure the CSV file is in the same folder.\n2. You MUST run this using a Local Server (like VS Code Live Server). Browsers block automatic file reading for security.`);
       });
   }
 
