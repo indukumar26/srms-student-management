@@ -209,7 +209,7 @@
     { u: 'staff', p: 'staff@123', r: 'staff' }
   ];
 
-  // 🔴 THIS IS THE FILE NAME WE LOOK FOR AUTOMATICALLY
+  // 🔴 TARGET FILE: The code will look for this file name specifically
   const TARGET_FILE_NAME = "students_500_with_years.csv";
 
   let students = JSON.parse(localStorage.getItem('studentData')) || [];
@@ -227,7 +227,7 @@
     if(validUser) {
       currentUser = validUser;
       
-      // *** 1. LOGIN SUCCESSFUL ***
+      // 1. Show Dashboard
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
       document.getElementById('display-role').textContent = r;
@@ -238,7 +238,8 @@
         document.getElementById('btn-delete-tab').classList.remove('hidden');
       }
 
-      // *** 2. CHECK IF WE NEED TO AUTO-LOAD CSV ***
+      // 2. CHECK IF WE NEED TO AUTO-LOAD CSV
+      // If table is empty, we try to fetch the file you specified
       if(students.length === 0) {
         attemptAutoLoadCSV();
       } else {
@@ -256,8 +257,9 @@
   // --- AUTOMATIC CSV FETCH ---
   function attemptAutoLoadCSV() {
     const statusMsg = document.getElementById('auto-load-msg');
-    statusMsg.textContent = `Auto-loading ${TARGET_FILE_NAME}...`;
+    statusMsg.textContent = `Looking for ${TARGET_FILE_NAME}...`;
 
+    // This command imports the file content
     fetch(TARGET_FILE_NAME)
       .then(response => {
         if (!response.ok) {
@@ -266,33 +268,40 @@
         return response.text();
       })
       .then(csvText => {
-        // Parse CSV
+        // Parse the CSV content
         const rows = csvText.split('\n');
         let count = 0;
-        for(let i = 1; i < rows.length; i++) { // Skip header
+        // Start loop from 1 to skip the header row
+        for(let i = 1; i < rows.length; i++) { 
            const row = rows[i].trim();
            if(!row) continue;
            const cols = row.split(',');
+           
+           // Based on your file: Reg, Name, Section, Branch, Year, CGPA
            if(cols.length >= 6) {
               students.push({
-                 reg: cols[0].trim(), name: cols[1].trim(), section: cols[2].trim(),
-                 branch: cols[3].trim(), year: cols[4].trim(), cgpa: cols[5].trim()
+                 reg: cols[0].trim(), 
+                 name: cols[1].trim(), 
+                 section: cols[2].trim(),
+                 branch: cols[3].trim(), 
+                 year: cols[4].trim(), 
+                 cgpa: cols[5].trim()
               });
               count++;
            }
         }
         localStorage.setItem('studentData', JSON.stringify(students));
-        statusMsg.textContent = `Success: Loaded ${count} students from CSV.`;
+        statusMsg.textContent = `Success: Loaded ${count} students from ${TARGET_FILE_NAME}.`;
         statusMsg.style.color = "green";
         renderTable();
       })
       .catch(err => {
         console.error(err);
-        statusMsg.textContent = `Failed to load ${TARGET_FILE_NAME}. (Ensure file exists & use Live Server)`;
+        statusMsg.textContent = `Error: Could not find ${TARGET_FILE_NAME}.`;
         statusMsg.style.color = "red";
         
-        // Show alert so user knows why it's empty
-        alert(`ERROR: Could not auto-load "${TARGET_FILE_NAME}".\n\n1. Make sure the CSV file is in the same folder.\n2. You MUST use a local server (like VS Code Live Server). Browsers block file reading otherwise.`);
+        // Alert user about server requirement
+        alert(`ERROR: Could not load "${TARGET_FILE_NAME}".\n\n1. Ensure the CSV file is in the same folder.\n2. You MUST run this on a Local Server (like VS Code Live Server). Browsers block automatic file reading for security.`);
       });
   }
 
