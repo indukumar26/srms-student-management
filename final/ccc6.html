@@ -82,11 +82,11 @@
   <div id="dashboard" class="hidden">
     
     <div class="top-bar">
-      <div>
-        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="importCSV()">
-        <button class="btn btn-success" onclick="document.getElementById('csv-file').click()">📂 Import CSV</button>
-        <span id="csv-msg" style="margin-left:10px; font-size:13px; color:green; font-weight:bold;"></span>
-        <button class="btn btn-warning" onclick="clearAllData()" style="margin-left:10px; font-size:12px; padding: 8px 12px;">Reset Data</button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <h3 style="margin:0; color: #555;">Student Records</h3>
+        <span style="color:#ccc">|</span>
+        <button class="btn btn-warning" onclick="clearAllData()" style="font-size:12px; padding: 8px 12px;">Reset Data</button>
+        <span id="auto-load-msg" style="font-size:12px; color: #666; font-style: italic;"></span>
       </div>
       <div>
         <span>Role: <b id="display-role" style="text-transform: capitalize; color: #007bff; margin-right: 15px;"></b></span>
@@ -107,17 +107,19 @@
         <h3>All Students List</h3>
         <button class="btn btn-primary" onclick="renderTable()">Refresh List</button>
       </div>
-      <table>
-        <thead>
-          <tr><th>Reg No</th><th>Name</th><th>Branch</th><th>Year</th><th>Section</th><th>CGPA</th></tr>
-        </thead>
-        <tbody id="table-body"></tbody>
-      </table>
+      <div style="max-height: 450px; overflow-y: auto; margin-top:10px; border:1px solid #eee;">
+        <table>
+          <thead style="position: sticky; top: 0; z-index: 10;">
+            <tr><th>Reg No</th><th>Name</th><th>Branch</th><th>Year</th><th>Section</th><th>CGPA</th></tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+      <div id="total-count" style="text-align:right; margin-top:5px; font-weight:bold; color:#666;"></div>
     </div>
 
     <div id="sec-add" class="section-box hidden">
       <h3>Add New Student</h3>
-      
       <div id="add-step-1" style="max-width: 500px; margin: 20px auto; text-align: center; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
         <p>Enter Registration Number to check if student exists:</p>
         <input type="text" id="check-add-reg" placeholder="e.g. AP25..." style="padding:10px; width:70%; border:1px solid #ccc; border-radius:4px;">
@@ -129,16 +131,9 @@
         <div style="background: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
            <strong>Adding Record For:</strong> <span id="display-new-reg" style="color:#007bff; font-weight:bold;"></span>
         </div>
-        
         <div class="form-grid">
-          <div class="input-group">
-            <label>Full Name</label>
-            <input type="text" id="add-name">
-          </div>
-          <div class="input-group">
-            <label>Section</label>
-            <input type="text" id="add-section">
-          </div>
+          <div class="input-group"><label>Full Name</label><input type="text" id="add-name"></div>
+          <div class="input-group"><label>Section</label><input type="text" id="add-section"></div>
           <div class="input-group">
             <label>Branch</label>
             <select id="add-branch">
@@ -153,10 +148,7 @@
               <option value="3 Year">3 Year</option><option value="4 Year">4 Year</option>
             </select>
           </div>
-          <div class="input-group">
-            <label>CGPA</label>
-            <input type="number" id="add-cgpa" step="0.01">
-          </div>
+          <div class="input-group"><label>CGPA</label><input type="number" id="add-cgpa" step="0.01"></div>
         </div>
         <div style="margin-top:20px; text-align:right;">
           <button class="btn btn-secondary" onclick="resetAddForm()">Cancel</button>
@@ -180,7 +172,6 @@
         <input type="text" id="update-search-reg" placeholder="Enter Reg No to Update..." style="padding:10px; width:300px;">
         <button class="btn btn-warning" onclick="loadForUpdate()">Load Details</button>
       </div>
-      
       <div id="update-form" class="hidden" style="border-top:2px solid #eee; padding-top:20px;">
         <div class="form-grid">
           <div class="input-group"><label>Name</label><input type="text" id="up-name"></div>
@@ -201,12 +192,10 @@
     <div id="sec-delete" class="section-box hidden">
       <h3 style="color:#dc3545;">Delete Student Record</h3>
       <p style="color:#666; margin-bottom:15px;">Enter the Registration Number of the student you want to delete.</p>
-      
       <div style="display: flex; gap: 10px; max-width: 500px;">
         <input type="text" id="delete-reg" placeholder="Enter Reg No (e.g. AP25...)" style="flex:1; padding:10px; border:1px solid #dc3545; border-radius:4px;">
         <button class="btn btn-danger" onclick="performDelete()">Delete</button>
       </div>
-      
       <div id="delete-msg" class="msg-box"></div>
     </div>
 
@@ -220,19 +209,13 @@
     { u: 'staff', p: 'staff@123', r: 'staff' }
   ];
 
-  // --- AUTO-FIX: MIGRATE OLD DATA ---
-  let students = JSON.parse(localStorage.getItem('studentData')) || [];
-  students = students.map(s => {
-    if (s.roll !== undefined && s.reg === undefined) { s.reg = s.roll; }
-    if (s.reg === undefined) { s.reg = "UNKNOWN"; }
-    return s;
-  });
-  localStorage.setItem('studentData', JSON.stringify(students));
-  // ----------------------------------
+  // 🔴 THIS IS THE FILE NAME WE LOOK FOR AUTOMATICALLY
+  const TARGET_FILE_NAME = "students_500_with_years.csv";
 
+  let students = JSON.parse(localStorage.getItem('studentData')) || [];
   let currentUser = null;
 
-  // --- LOGIN ---
+  // --- LOGIN & AUTO-IMPORT LOGIC ---
   function login() {
     const u = document.getElementById('u').value.trim();
     const p = document.getElementById('p').value.trim();
@@ -243,6 +226,8 @@
 
     if(validUser) {
       currentUser = validUser;
+      
+      // *** 1. LOGIN SUCCESSFUL ***
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('dashboard').classList.remove('hidden');
       document.getElementById('display-role').textContent = r;
@@ -252,13 +237,63 @@
       } else {
         document.getElementById('btn-delete-tab').classList.remove('hidden');
       }
+
+      // *** 2. CHECK IF WE NEED TO AUTO-LOAD CSV ***
+      if(students.length === 0) {
+        attemptAutoLoadCSV();
+      } else {
+        renderTable();
+      }
       
       showSection('sec-view', document.querySelector('.nav-btn'));
-      renderTable();
+
     } else {
       msg.textContent = "Invalid Credentials!";
       msg.className = "msg-box msg-error";
     }
+  }
+
+  // --- AUTOMATIC CSV FETCH ---
+  function attemptAutoLoadCSV() {
+    const statusMsg = document.getElementById('auto-load-msg');
+    statusMsg.textContent = `Auto-loading ${TARGET_FILE_NAME}...`;
+
+    fetch(TARGET_FILE_NAME)
+      .then(response => {
+        if (!response.ok) {
+           throw new Error("File Not Found");
+        }
+        return response.text();
+      })
+      .then(csvText => {
+        // Parse CSV
+        const rows = csvText.split('\n');
+        let count = 0;
+        for(let i = 1; i < rows.length; i++) { // Skip header
+           const row = rows[i].trim();
+           if(!row) continue;
+           const cols = row.split(',');
+           if(cols.length >= 6) {
+              students.push({
+                 reg: cols[0].trim(), name: cols[1].trim(), section: cols[2].trim(),
+                 branch: cols[3].trim(), year: cols[4].trim(), cgpa: cols[5].trim()
+              });
+              count++;
+           }
+        }
+        localStorage.setItem('studentData', JSON.stringify(students));
+        statusMsg.textContent = `Success: Loaded ${count} students from CSV.`;
+        statusMsg.style.color = "green";
+        renderTable();
+      })
+      .catch(err => {
+        console.error(err);
+        statusMsg.textContent = `Failed to load ${TARGET_FILE_NAME}. (Ensure file exists & use Live Server)`;
+        statusMsg.style.color = "red";
+        
+        // Show alert so user knows why it's empty
+        alert(`ERROR: Could not auto-load "${TARGET_FILE_NAME}".\n\n1. Make sure the CSV file is in the same folder.\n2. You MUST use a local server (like VS Code Live Server). Browsers block file reading otherwise.`);
+      });
   }
 
   function logout() { location.reload(); }
@@ -267,15 +302,9 @@
   function showSection(id, btn) {
     document.querySelectorAll('.section-box').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
-    
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    
-    document.querySelectorAll('.msg-box').forEach(m => { 
-        m.style.display = 'none'; 
-        m.textContent = ''; 
-        m.className = 'msg-box'; // Reset class
-    });
+    document.querySelectorAll('.msg-box').forEach(m => { m.style.display = 'none'; m.textContent = ''; m.className = 'msg-box'; });
   }
 
   // --- UTILS ---
@@ -284,47 +313,23 @@
       localStorage.removeItem('studentData');
       students = [];
       renderTable();
-      alert("All data cleared.");
+      document.getElementById('auto-load-msg').textContent = "Data cleared.";
+      alert("All data cleared. Log out and back in to attempt auto-load again.");
     }
   }
 
-  // --- CSV IMPORT ---
-  function importCSV() {
-    const file = document.getElementById('csv-file').files[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const rows = e.target.result.split('\n');
-      let count = 0;
-      for(let i = 1; i < rows.length; i++) {
-        const row = rows[i].trim();
-        if(!row) continue;
-        const cols = row.split(',');
-        if(cols.length >= 6) {
-          const reg = cols[0].trim();
-          if(!students.some(s => s.reg == reg)) {
-            students.push({
-              reg: reg, name: cols[1].trim(), section: cols[2].trim(),
-              branch: cols[3].trim(), year: cols[4].trim(), cgpa: cols[5].trim()
-            });
-            count++;
-          }
-        }
-      }
-      localStorage.setItem('studentData', JSON.stringify(students));
-      document.getElementById('csv-msg').textContent = `Added ${count} students.`;
-      renderTable();
-    };
-    reader.readAsText(file);
-  }
-
-  // --- 1. VIEW ---
+  // --- VIEW ---
   function renderTable() {
     const tbody = document.getElementById('table-body');
     tbody.innerHTML = "";
-    if(students.length === 0) { tbody.innerHTML = "<tr><td colspan='6' style='text-align:center'>No Data</td></tr>"; return; }
     
+    if(students.length === 0) { 
+        tbody.innerHTML = "<tr><td colspan='6' style='text-align:center'>No Data</td></tr>"; 
+        return; 
+    }
+    
+    document.getElementById('total-count').textContent = `Total Students: ${students.length}`;
+
     students.forEach(s => {
       const r = s.reg || '-';
       const n = s.name || '-';
@@ -332,28 +337,20 @@
     });
   }
 
-  // --- 2. ADD STUDENT (CHECK LOGIC) ---
+  // --- ADD STUDENT ---
   let pendingReg = "";
 
   function checkBeforeAdd() {
     const reg = document.getElementById('check-add-reg').value.trim();
     const msg = document.getElementById('add-check-msg');
-
-    if(!reg) {
-      msg.textContent = "Please enter a Registration Number";
-      msg.className = "msg-box msg-error";
-      return;
-    }
+    if(!reg) { msg.textContent = "Enter Reg No"; msg.className = "msg-box msg-error"; return; }
 
     const exists = students.some(s => s.reg && s.reg.toLowerCase() === reg.toLowerCase());
-
     if(exists) {
-      msg.textContent = `Student with ID ${reg} already exists!`;
-      msg.className = "msg-box msg-error";
+      msg.textContent = `ID ${reg} already exists!`; msg.className = "msg-box msg-error";
       document.getElementById('add-step-2').classList.add('hidden');
     } else {
-      msg.style.display = "none";
-      pendingReg = reg;
+      msg.style.display = "none"; pendingReg = reg;
       document.getElementById('display-new-reg').textContent = reg;
       document.getElementById('add-step-1').classList.add('hidden');
       document.getElementById('add-step-2').classList.remove('hidden');
@@ -367,13 +364,11 @@
     const year = document.getElementById('add-year').value;
     const cgpa = document.getElementById('add-cgpa').value;
 
-    if(!name || !branch || !year) { alert("Please fill details"); return; }
-
+    if(!name || !branch || !year) { alert("Fill all details"); return; }
     students.push({ reg: pendingReg, name, section, branch, year, cgpa });
     localStorage.setItem('studentData', JSON.stringify(students));
-    
-    alert("Student Added Successfully!");
-    resetAddForm();
+    alert("Student Added!"); resetAddForm();
+    renderTable();
   }
 
   function resetAddForm() {
@@ -384,27 +379,19 @@
     document.getElementById('add-cgpa').value = "";
   }
 
-  // --- 3. SEARCH ---
+  // --- SEARCH & UPDATE & DELETE ---
   function performSearch() {
     const reg = document.getElementById('search-input').value.trim().toLowerCase();
     const resBox = document.getElementById('search-result');
-    
     const s = students.find(st => st.reg && st.reg.toLowerCase() === reg);
     resBox.classList.remove('hidden');
-    
-    if(s) {
-      resBox.innerHTML = `<h4 style="color:green; margin:0">Found:</h4> <p><b>${s.reg}</b> - ${s.name} | ${s.branch} | ${s.year} | CGPA: ${s.cgpa}</p>`;
-    } else {
-      resBox.innerHTML = `<p style="color:red">Student Not Found.</p>`;
-    }
+    resBox.innerHTML = s ? `<h4 style="color:green; margin:0">Found:</h4> <p><b>${s.reg}</b> - ${s.name} | ${s.branch} | ${s.year} | CGPA: ${s.cgpa}</p>` : `<p style="color:red">Student Not Found.</p>`;
   }
 
-  // --- 4. UPDATE ---
   function loadForUpdate() {
     const reg = document.getElementById('update-search-reg').value.trim();
     const s = students.find(st => st.reg && st.reg.toLowerCase() === reg.toLowerCase());
     const msg = document.getElementById('update-msg');
-
     if(s) {
       document.getElementById('update-form').classList.remove('hidden');
       document.getElementById('up-name').value = s.name;
@@ -415,61 +402,41 @@
       msg.style.display = 'none';
     } else {
       document.getElementById('update-form').classList.add('hidden');
-      msg.textContent = "Student Not Found!";
-      msg.className = "msg-box msg-error";
+      msg.textContent = "Not Found!"; msg.className = "msg-box msg-error";
     }
   }
 
   function saveUpdate() {
     const reg = document.getElementById('update-search-reg').value.trim();
     const index = students.findIndex(s => s.reg && s.reg.toLowerCase() === reg.toLowerCase());
-    
     if(index !== -1) {
       students[index].name = document.getElementById('up-name').value;
       students[index].section = document.getElementById('up-section').value;
       students[index].branch = document.getElementById('up-branch').value;
       students[index].year = document.getElementById('up-year').value;
       students[index].cgpa = document.getElementById('up-cgpa').value;
-      
       localStorage.setItem('studentData', JSON.stringify(students));
-      document.getElementById('update-msg').textContent = "Updated Successfully!";
-      document.getElementById('update-msg').className = "msg-box msg-success";
+      document.getElementById('update-msg').textContent = "Updated!"; document.getElementById('update-msg').className = "msg-box msg-success";
       document.getElementById('update-form').classList.add('hidden');
+      renderTable();
     }
   }
 
-  // --- 5. DELETE (IMPROVED FEEDBACK) ---
   function performDelete() {
     const regInput = document.getElementById('delete-reg').value.trim();
     const msg = document.getElementById('delete-msg');
+    if(!regInput) { msg.textContent = "Enter Reg No"; msg.className = "msg-box msg-error"; return; }
     
-    if(!regInput) {
-        msg.textContent = "Please enter a Registration Number.";
-        msg.className = "msg-box msg-error";
-        return;
-    }
-
-    // 1. Find the student first
-    const studentToDelete = students.find(s => s.reg && s.reg.toLowerCase() === regInput.toLowerCase());
-
-    if(studentToDelete) {
-      // 2. Confirm
-      if(confirm(`Are you sure you want to delete ${studentToDelete.name} (${studentToDelete.reg})?`)) {
-          // 3. Delete
-          students = students.filter(s => s.reg.toLowerCase() !== regInput.toLowerCase());
-          localStorage.setItem('studentData', JSON.stringify(students));
-          
-          // 4. Show Specific Success Message
-          msg.textContent = `Student ${studentToDelete.name} (${studentToDelete.reg}) deleted successfully.`;
-          msg.className = "msg-box msg-success";
-          
-          // Clear input
-          document.getElementById('delete-reg').value = "";
-          renderTable();
+    const s = students.find(st => st.reg && st.reg.toLowerCase() === regInput.toLowerCase());
+    if(s) {
+      if(confirm(`Delete ${s.name}?`)) {
+        students = students.filter(st => st.reg.toLowerCase() !== regInput.toLowerCase());
+        localStorage.setItem('studentData', JSON.stringify(students));
+        msg.textContent = "Deleted."; msg.className = "msg-box msg-success";
+        renderTable();
       }
     } else {
-      msg.textContent = `Student with Reg No "${regInput}" not found.`;
-      msg.className = "msg-box msg-error";
+      msg.textContent = "Not Found."; msg.className = "msg-box msg-error";
     }
   }
 </script>
